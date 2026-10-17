@@ -1,0 +1,212 @@
+name: ShopSure tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      update_snapshots:
+        description: Regenerate visual baselines on the CI image and upload them as an artifact
+        type: boolean
+        default: false
+
+# One run per branch/PR at a time; a newer push to a PR cancels the older run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  CI: true
+  FORCE_COLOR: 0
+
+jobs:
+  static:
+    name: Lint & type check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+
+  smoke:
+    name: Smoke (API + Chromium)
+    needs: static
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          browsers: chromium
+        env:
+          STANDARD_USER_PASSWORD: ${{ secrets.STANDARD_USER_PASSWORD }}
+          LOCKED_USER_PASSWORD: ${{ secrets.LOCKED_USER_PASSWORD }}
+          ADMIN_USER_PASSWORD: ${{ secrets.ADMIN_USER_PASSWORD }}
+      - name: Run smoke tests
+        run: npm run test:smoke
+      - name: Summarise
+        if: ${{ !cancelled() }}
+        run: npm run summary
+      - name: Upload HTML report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-report
+          path: reports/
+          retention-days: 7
+      - name: Upload traces and screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-results
+          path: test-results/
+          retention-days: 7
+
+  regression-browsers:
+    name: Regression (${{ matrix.project }} ${{ matrix.shard }}/2)
+    needs: smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chromium, firefox, webkit]
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          browsers: ${{ matrix.project }}
+        env:
+          STANDARD_USER_PASSWORD: ${{ secrets.STANDARD_USER_PASSWORD }}
+          LOCKED_USER_PASSWORD: ${{ secrets.LOCKED_USER_PASSWORD }}
+          ADMIN_USER_PASSWORD: ${{ secrets.ADMIN_USER_PASSWORD }}
+      - name: Run regression shard
+        # Visual baselines are platform-specific and run in their own manual job.
+        run: >
+          npx playwright test --project=${{ matrix.project }} --grep @regression --grep-invert @visual
+          --shard=${{ matrix.shard }}/2 --reporter=blob
+        env:
+          PLAYWRIGHT_BLOB_OUTPUT_NAME: report-${{ matrix.project }}-${{ matrix.shard }}.zip
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: blob-report-${{ matrix.project }}-${{ matrix.shard }}
+          path: blob-report/
+          retention-days: 3
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-results-${{ matrix.project }}-${{ matrix.shard }}
+          path: test-results/
+          retention-days: 7
+
+  regression-api-db:
+    name: Regression (API + PostgreSQL)
+    needs: smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          # Throwaway credentials for a database that exists only for this job.
+          POSTGRES_USER: shopsure
+          POSTGRES_PASSWORD: shopsure
+          POSTGRES_DB: shopsure
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U shopsure" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://shopsure:shopsure@127.0.0.1:5432/shopsure
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          browsers: chromium
+        env:
+          STANDARD_USER_PASSWORD: ${{ secrets.STANDARD_USER_PASSWORD }}
+          LOCKED_USER_PASSWORD: ${{ secrets.LOCKED_USER_PASSWORD }}
+          ADMIN_USER_PASSWORD: ${{ secrets.ADMIN_USER_PASSWORD }}
+      - name: Run API and database tests
+        # API project plus the browser-driven DB integration spec (needs Chromium).
+        run: >
+          npx playwright test --project=api --project=chromium --grep @regression
+          tests/api tests/integration --reporter=blob
+        env:
+          PLAYWRIGHT_BLOB_OUTPUT_NAME: report-api-db.zip
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: blob-report-api-db
+          path: blob-report/
+          retention-days: 3
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-results-api-db
+          path: test-results/
+          retention-days: 7
+
+  report:
+    name: Merge reports
+    needs: [regression-browsers, regression-api-db]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v4
+        with:
+          path: all-blob-reports
+          pattern: blob-report-*
+          merge-multiple: true
+      - name: Merge into HTML and JSON
+        run: npx playwright merge-reports --reporter=html,json ./all-blob-reports
+        env:
+          PLAYWRIGHT_HTML_OUTPUT_DIR: reports/html
+          PLAYWRIGHT_HTML_OPEN: never
+          PLAYWRIGHT_JSON_OUTPUT_FILE: reports/results.json
+      - name: Summarise
+        run: npm run summary
+      - uses: actions/upload-artifact@v4
+        with:
+          name: regression-report
+          path: reports/
+          retention-days: 14
+
+  visual:
+    name: Visual regression (manual)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          browsers: chromium
+        env:
+          STANDARD_USER_PASSWORD: ${{ secrets.STANDARD_USER_PASSWORD }}
+          LOCKED_USER_PASSWORD: ${{ secrets.LOCKED_USER_PASSWORD }}
+          ADMIN_USER_PASSWORD: ${{ secrets.ADMIN_USER_PASSWORD }}
+      - name: Run visual tests
+        run: >
+          npx playwright test --project=chromium --grep @visual
+          ${{ inputs.update_snapshots && '--update-snapshots' || '' }}
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: visual-snapshots-and-diffs
+          path: |
+            tests/__snapshots__/
+            test-results/
+          retention-days: 7

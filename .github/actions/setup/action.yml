@@ -1,0 +1,58 @@
+name: Set up ShopSure test environment
+description: Installs Node and dependencies, optionally Playwright browsers, and writes .env.
+
+inputs:
+  browsers:
+    description: Space-separated Playwright browsers to install (empty for none)
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version-file: .nvmrc
+        cache: npm
+
+    - name: Install dependencies
+      shell: bash
+      run: npm ci
+
+    - name: Resolve Playwright version
+      if: inputs.browsers != ''
+      id: pw
+      shell: bash
+      run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+    - name: Cache Playwright browsers
+      if: inputs.browsers != ''
+      id: browser-cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}-${{ inputs.browsers }}
+
+    - name: Install Playwright browsers
+      if: inputs.browsers != '' && steps.browser-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: npx playwright install --with-deps ${{ inputs.browsers }}
+
+    - name: Install browser system dependencies (cache hit)
+      if: inputs.browsers != '' && steps.browser-cache.outputs.cache-hit == 'true'
+      shell: bash
+      run: npx playwright install-deps ${{ inputs.browsers }}
+
+    # The demo store's throwaway accounts come from .env.example. Repository secrets with
+    # the same names (if defined) are appended and win, because later keys override earlier
+    # ones when .env is parsed. Values are never echoed.
+    - name: Write .env
+      shell: bash
+      run: |
+        cp .env.example .env
+        for name in STANDARD_USER_PASSWORD LOCKED_USER_PASSWORD ADMIN_USER_PASSWORD; do
+          if [ -n "${!name:-}" ]; then
+            # Single-quoted so characters such as # or $ are taken literally by dotenv.
+            printf "%s='%s'\n" "$name" "${!name}" >> .env
+          fi
+        done

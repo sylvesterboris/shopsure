@@ -1,0 +1,59 @@
+{
+  "name": "shopsure-playwright",
+  "version": "1.0.0",
+  "description": "ShopSure: Playwright + TypeScript UI, API and database test automation framework for an e-commerce store",
+  "private": true,
+  "license": "MIT",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "app:start": "tsx demo-app/server.ts",
+    "test": "playwright test",
+    "test:smoke": "playwright test --grep @smoke --project=api --project=chromium",
+    "test:regression": "playwright test --grep @regression",
+    "test:ui": "playwright test --project=chromium tests/ui",
+    "test:api": "playwright test --project=api",
+    "test:db": "playwright test --project=api --project=chromium tests/integration",
+    "test:chromium": "playwright test --project=chromium",
+    "test:firefox": "playwright test --project=firefox",
+    "test:webkit": "playwright test --project=webkit",
+    "test:headed": "playwright test --project=chromium --headed",
+    "test:debug": "playwright test --project=chromium --debug",
+    "test:update-snapshots": "playwright test --grep @visual --update-snapshots",
+    "report": "playwright show-report reports/html",
+    "summary": "tsx scripts/generate-summary.ts",
+    "db:setup": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f database/schema.sql",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings=0",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "npm run typecheck && npm run lint && npm run format:check"
+  },
+  "dependencies": {
+    "express": "5.3.0",
+    "pg": "8.23.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.56.0",
+    "@types/express": "5.0.6",
+    "@types/node": "22.20.5",
+    "@types/pg": "8.23.1",
+    "dotenv": "18.0.8",
+    "eslint": "10.13.0",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-playwright": "2.12.1",
+    "prettier": "3.9.10",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.71.2"
+  },
+  "overrides": {
+    "playwright-core": "$@playwright/test"
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "_comment": "Negative login cases only. Valid credentials come from environment variables, never from this file.",
+  "invalidLogins": [
+    {
+      "case": "unknown username",
+      "username": "no_such_user",
+      "password": "irrelevant-password",
+      "expectedError": "Invalid username or password"
+    },
+    {
+      "case": "wrong password for a real username",
+      "username": "${STANDARD_USER}",
+      "password": "definitely-wrong-password",
+      "expectedError": "Invalid username or password"
+    },
+    {
+      "case": "username with different letter case",
+      "username": "STANDARD_USER",
+      "password": "definitely-wrong-password",
+      "expectedError": "Invalid username or password"
+    },
+    {
+      "case": "SQL-injection style input",
+      "username": "' OR '1'='1",
+      "password": "' OR '1'='1",
+      "expectedError": "Invalid username or password"
+    }
+  ],
+  "emptyLogins": [
+    {
+      "case": "both fields empty",
+      "username": "",
+      "password": "",
+      "expectedError": "Username and password are required."
+    },
+    {
+      "case": "username empty",
+      "username": "",
+      "password": "some-password",
+      "expectedError": "Username is required."
+    },
+    {
+      "case": "password empty",
+      "username": "someone",
+      "password": "",
+      "expectedError": "Password is required."
+    }
+  ]
+}

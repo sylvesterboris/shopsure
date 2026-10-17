@@ -1,0 +1,103 @@
+{
+  "_comment": "Expected seed catalogue of the local demo store. Used as an independent test oracle.",
+  "catalogSize": 12,
+  "categories": ["audio", "wearables", "accessories", "home"],
+  "products": [
+    {
+      "id": 1,
+      "sku": "AUD-001",
+      "name": "Aurora Wireless Headphones",
+      "category": "audio",
+      "price": 89.99,
+      "inStock": true
+    },
+    {
+      "id": 2,
+      "sku": "AUD-002",
+      "name": "Pulse Bluetooth Speaker",
+      "category": "audio",
+      "price": 49.99,
+      "inStock": true
+    },
+    {
+      "id": 3,
+      "sku": "AUD-003",
+      "name": "Echo Earbuds",
+      "category": "audio",
+      "price": 25.0,
+      "inStock": true
+    },
+    {
+      "id": 4,
+      "sku": "WRB-001",
+      "name": "Stride Fitness Band",
+      "category": "wearables",
+      "price": 39.5,
+      "inStock": true
+    },
+    {
+      "id": 5,
+      "sku": "WRB-002",
+      "name": "Orbit Smartwatch",
+      "category": "wearables",
+      "price": 199.0,
+      "inStock": true
+    },
+    {
+      "id": 6,
+      "sku": "ACC-001",
+      "name": "Nimbus Phone Case",
+      "category": "accessories",
+      "price": 12.99,
+      "inStock": true
+    },
+    {
+      "id": 7,
+      "sku": "ACC-002",
+      "name": "Volt USB-C Charger",
+      "category": "accessories",
+      "price": 25.0,
+      "inStock": true
+    },
+    {
+      "id": 8,
+      "sku": "ACC-003",
+      "name": "Atlas Laptop Backpack",
+      "category": "accessories",
+      "price": 64.0,
+      "inStock": true
+    },
+    {
+      "id": 9,
+      "sku": "ACC-004",
+      "name": "Sticker Pack",
+      "category": "accessories",
+      "price": 0.99,
+      "inStock": true
+    },
+    {
+      "id": 10,
+      "sku": "HOM-001",
+      "name": "Lumen Desk Lamp",
+      "category": "home",
+      "price": 34.75,
+      "inStock": true
+    },
+    {
+      "id": 11,
+      "sku": "HOM-002",
+      "name": "Haven Coffee Mug",
+      "category": "home",
+      "price": 15.49,
+      "inStock": true
+    },
+    {
+      "id": 12,
+      "sku": "HOM-003",
+      "name": "Zen Aroma Diffuser",
+      "category": "home",
+      "price": 29.95,
+      "inStock": false
+    }
+  ]
+}
